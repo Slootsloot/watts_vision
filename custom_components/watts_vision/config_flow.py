@@ -5,7 +5,7 @@ import logging
 from typing import Any
 
 from homeassistant import config_entries
-from homeassistant.config_entries import CONN_CLASS_CLOUD_POLL, ConfigFlow
+from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
@@ -22,7 +22,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def validate_input(
-    hass: HomeAssistant, data: dict[str, Any], current: dict[str, Any] = None
+    hass: HomeAssistant, data: dict[str, Any], current: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     """Validate the user input allows us to connect."""
 
@@ -30,7 +30,8 @@ async def validate_input(
     existing_entries = hass.config_entries.async_entries(DOMAIN)
     for entry in existing_entries:
         if entry.data.get(CONF_USERNAME) == data[CONF_USERNAME] and (
-            current is None or entry.data.get(CONF_USERNAME) != current.get("username")
+            current is None
+            or entry.data.get(CONF_USERNAME) != current.get(CONF_USERNAME)
         ):
             raise UsernameExists
 
@@ -46,13 +47,14 @@ async def validate_input(
     return data
 
 
-class ConfigFlow(ConfigFlow, domain=DOMAIN):
+class WattsVisionConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Watts Vision."""
 
     VERSION = 1
-    CONNECTION_CLASS = CONN_CLASS_CLOUD_POLL
 
-    async def async_step_user(self, user_input: dict[str, Any] = None):
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         if user_input is None:
             return self.async_show_form(step_id="user", data_schema=CONFIG_SCHEMA)
 
@@ -70,7 +72,7 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
             errors["base"] = "unknown"
         else:
             return self.async_create_entry(
-                title=str(user_input["username"]), data=user_input
+                title=str(user_input[CONF_USERNAME]), data=user_input
             )
 
         return self.async_show_form(
@@ -79,9 +81,15 @@ class ConfigFlow(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry):
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
         """Get the options flow for this handler."""
         return OptionsFlowHandler(config_entry)
+
+
+# Backward-compatible alias used by tests/imports.
+ConfigFlow = WattsVisionConfigFlow
 
 
 class InvalidAuth(HomeAssistantError):
@@ -95,13 +103,14 @@ class UsernameExists(HomeAssistantError):
 class OptionsFlowHandler(config_entries.OptionsFlow):
     """Handle options flow for the Watts Vision integration."""
 
-    def __init__(self, config_entry):
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize the options flow."""
         self.config_entry = config_entry
 
-    async def async_step_init(self, user_input=None):
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         errors = {}
-        updated = None
         if user_input is not None:
             try:
                 _LOGGER.debug("Validate input")
@@ -111,17 +120,14 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
                 # Update entry
                 _LOGGER.debug("Updating entry")
-                updated = self.hass.config_entries.async_update_entry(
+                self.hass.config_entries.async_update_entry(
                     self.config_entry,
-                    title=str(user_input["username"]),
+                    title=str(user_input[CONF_USERNAME]),
                     data=validated_data,
                 )
-                if updated:
-                    # Reload entry
-                    _LOGGER.debug("Reloading entry")
-                    await self.hass.config_entries.async_reload(
-                        self.config_entry.entry_id
-                    )
+                # Reload entry
+                _LOGGER.debug("Reloading entry")
+                await self.hass.config_entries.async_reload(self.config_entry.entry_id)
 
             except InvalidAuth:
                 errors["base"] = "invalid_auth"
@@ -132,7 +138,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 errors["base"] = "unknown"
             else:
                 # If updated, return to overview
-                return self.async_create_entry(title="", data=None)
+                return self.async_create_entry(title="", data={})
 
         return self.async_show_form(
             step_id="init",

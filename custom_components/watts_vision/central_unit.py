@@ -2,6 +2,7 @@
 from typing import Optional
 
 from homeassistant.components.sensor import SensorEntity
+from homeassistant.helpers import device_registry as dr
 
 from .const import DOMAIN
 from .watts_api import WattsApi
@@ -29,7 +30,7 @@ class WattsVisionLastCommunicationSensor(SensorEntity):
         return self._name
 
     @property
-    def state(self) -> Optional[str]:
+    def native_value(self) -> Optional[str]:
         return self._state
 
     @property
@@ -43,7 +44,7 @@ class WattsVisionLastCommunicationSensor(SensorEntity):
             "name": "Central Unit " + self._label,
             "model": "BT-CT02-RF",
             "connections": {
-                ("mac", self._mac_address)
+                (dr.CONNECTION_NETWORK_MAC, self._mac_address)
             }
         }
 

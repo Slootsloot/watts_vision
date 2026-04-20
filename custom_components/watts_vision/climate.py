@@ -34,7 +34,7 @@ async def async_setup_entry(
 ):
     """Set up the climate platform."""
 
-    wattsClient: WattsApi = hass.data[DOMAIN][API_CLIENT]
+    wattsClient: WattsApi = hass.data[DOMAIN][config_entry.entry_id][API_CLIENT]
 
     smartHomes = wattsClient.getSmartHomes()
 

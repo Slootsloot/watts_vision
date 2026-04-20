@@ -11,7 +11,6 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfTemperature
 from homeassistant.core import HomeAssistant
-from numpy import nan as NaN
 
 from .central_unit import WattsVisionLastCommunicationSensor
 from .const import API_CLIENT, DOMAIN, ERROR_MAP, PRESET_MODE_MAP
@@ -27,7 +26,7 @@ async def async_setup_entry(
 ):
     """Set up the sensor platform."""
 
-    wattsClient: WattsApi = hass.data[DOMAIN][API_CLIENT]
+    wattsClient: WattsApi = hass.data[DOMAIN][config_entry.entry_id][API_CLIENT]
 
     smartHomes = wattsClient.getSmartHomes()
 
@@ -107,7 +106,7 @@ class WattsVisionThermostatSensor(SensorEntity):
         return self._name
 
     @property
-    def state(self) -> Optional[str]:
+    def native_value(self) -> Optional[str]:
         return self._state
 
     @property
@@ -161,7 +160,7 @@ class WattsVisionTemperatureSensor(SensorEntity):
         return self._name
 
     @property
-    def state(self) -> Optional[str]:
+    def native_value(self) -> Optional[float]:
         return self._state
 
     @property
@@ -192,15 +191,7 @@ class WattsVisionTemperatureSensor(SensorEntity):
 
     async def async_update(self):
         smartHomeDevice = self.client.getDevice(self.smartHome, self.id)
-        if self.hass.config.units.temperature_unit == UnitOfTemperature.CELSIUS:
-            self._state = round(
-                ((float(smartHomeDevice["temperature_air"]) / 10.0) - 32) * (5.0 / 9.0), 1
-            )
-            # self._state = round(
-            #     (int(smartHomeDevice["temperature_air"]) - 320) * 5 / 9 / 10, 1
-            # )
-        else:
-            self._state = int(smartHomeDevice["temperature_air"]) / 10
+        self._state = int(smartHomeDevice["temperature_air"]) / 10
 
 
 class WattsVisionSetTemperatureSensor(SensorEntity):
@@ -227,7 +218,7 @@ class WattsVisionSetTemperatureSensor(SensorEntity):
         return self._name
 
     @property
-    def state(self) -> Optional[str]:
+    def native_value(self) -> Optional[float]:
         return self._state
 
     @property
@@ -261,7 +252,7 @@ class WattsVisionSetTemperatureSensor(SensorEntity):
         if smartHomeDevice["gv_mode"] == "0":
             self._state = smartHomeDevice["consigne_confort"]
         if smartHomeDevice["gv_mode"] == "1":
-            self._state = NaN
+            self._state = None
         if smartHomeDevice["gv_mode"] == "2":
             self._state = smartHomeDevice["consigne_hg"]
         if smartHomeDevice["gv_mode"] == "3":
@@ -270,18 +261,8 @@ class WattsVisionSetTemperatureSensor(SensorEntity):
             self._state = smartHomeDevice["consigne_boost"]
         if smartHomeDevice["gv_mode"] == "11" or smartHomeDevice["gv_mode"] == "8":
             self._state = smartHomeDevice["consigne_manuel"]
-        if self._state != NaN:
-            if self.hass.config.units.temperature_unit == UnitOfTemperature.CELSIUS:
-                # self._state = round((int(self._state) - 320) * 5 / 9 / 10, 1)
-                self._state = round(
-                    (
-                        (
-                            float(self._state) / 10.0
-                        ) - 32
-                    ) * (5.0 / 9.0) * 2, 1
-                ) / 2
-            else:
-                self._state = int(self._state) / 10
+        if self._state is not None:
+            self._state = int(self._state) / 10
 
 
 class WattsVisionErrorSensor(SensorEntity):
@@ -308,7 +289,7 @@ class WattsVisionErrorSensor(SensorEntity):
         return self._name
 
     @property
-    def state(self) -> Optional[str]:
+    def native_value(self) -> Optional[str]:
         if self.client.getDevice(self.smartHome, self.id)['error_code'] > 1:
             _LOGGER.warning('Thermostat battery for device %s is (almost) empty.', self.id)
         return self._state

@@ -18,7 +18,7 @@ async def async_setup_entry(
     hass: HomeAssistant, config_entry: ConfigEntry, async_add_entities: Callable
 ):
     """Set up the binary_sensor platform."""
-    wattsClient: WattsApi = hass.data[DOMAIN][API_CLIENT]
+    wattsClient: WattsApi = hass.data[DOMAIN][config_entry.entry_id][API_CLIENT]
 
     smartHomes = wattsClient.getSmartHomes()
 

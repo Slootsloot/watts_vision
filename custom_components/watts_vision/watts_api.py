@@ -34,6 +34,7 @@ class WattsApi:
         """Get the access token for the Watts Smarthome API through login or refresh"""
 
         now = datetime.now()
+        payload = None
 
         if (
             forcelogin
@@ -56,10 +57,12 @@ class WattsApi:
             }
         else:
             _LOGGER.debug("Getting token called unneeded.")
+            return self._token
 
         request_token_result = requests.post(
             url="https://auth.smarthome.wattselectronics.com/realms/watts/protocol/openid-connect/token",
             data=payload,
+            timeout=30,
         )
 
         if request_token_result.status_code == 200:
@@ -78,14 +81,16 @@ class WattsApi:
             return token
         else:
             if firstTry:
-                self.getLoginToken(forcelogin=True, firstTry=False)
+                return self.getLoginToken(forcelogin=True, firstTry=False)
             else:
                 _LOGGER.error(
                     "Something went wrong fetching the token: {}".format(
                         request_token_result.status_code
                     )
                 )
-                raise None
+                raise RuntimeError(
+                    f"Failed to fetch token: {request_token_result.status_code}"
+                )
 
     def loadData(self):
         """load data from api"""
@@ -105,6 +110,7 @@ class WattsApi:
             url="https://smarthome.wattselectronics.com/api/v0.1/human/user/read/",
             headers=headers,
             data=payload,
+            timeout=30,
         )
 
         if self.check_response(user_data_result):
@@ -123,6 +129,7 @@ class WattsApi:
             url="https://smarthome.wattselectronics.com/api/v0.1/human/smarthome/read/",
             headers=headers,
             data=payload,
+            timeout=30,
         )
 
         if self.check_response(devices_result):
@@ -256,6 +263,7 @@ class WattsApi:
             url="https://smarthome.wattselectronics.com/api/v0.1/human/query/push/",
             headers=headers,
             data=payload,
+            timeout=30,
         )
 
         if self.check_response(push_result):
@@ -272,6 +280,7 @@ class WattsApi:
             url="https://smarthome.wattselectronics.com/api/v0.1/human/sandbox/check_last_connexion/",
             headers=headers,
             data=payload,
+            timeout=30,
         )
 
         if self.check_response(last_connection_result):
